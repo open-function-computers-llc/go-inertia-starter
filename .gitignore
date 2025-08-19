@@ -1,6 +1,4 @@
 node_modules
-dist/*.css
-dist/*.js
-dist/*.json
-httpd/*
+dist/*
+cmd/*
 .env

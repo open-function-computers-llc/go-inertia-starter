@@ -3,6 +3,7 @@ package server
 import (
 	"io/fs"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/petaki/inertia-go"
@@ -13,24 +14,34 @@ type server struct {
 	port           int
 	logger         *logrus.Logger
 	router         *http.ServeMux
-	inertiaManager *inertia.Inertia
 	distFS         fs.FS
+	inertiaManager *inertia.Inertia
 }
 
-func New(port int, url string, fs fs.FS) (server, error) {
+func NewServer(fileSystem fs.FS, url string) server {
+	portAsInt, _ := strconv.Atoi(os.Getenv("APP_PORT"))
+
 	s := server{
+		port:           portAsInt,
 		logger:         logrus.New(),
-		port:           port,
 		router:         http.NewServeMux(),
-		inertiaManager: inertia.New(url, "./server/index.html", ""),
-		distFS:         fs,
+		distFS:         fileSystem,
+		inertiaManager: inertia.NewWithFS(url, "dist/index.html", "", fileSystem),
 	}
 
+	// share the app environment with the frontend
+	s.inertiaManager.Share("appEnvironment", os.Getenv("APP_ENV"))
+
+	s.inertiaManager.ShareFunc("assetPath", s.assetPath)
+
+	s.logger.Info("about to bind routes!")
 	s.bindRoutes()
 
-	return s, nil
+	return s
 }
 
 func (s *server) Serve() error {
+	s.logger.Info("now serving on port: " + strconv.Itoa(s.port))
+
 	return http.ListenAndServe(":"+strconv.Itoa(s.port), s.router)
 }

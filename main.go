@@ -3,52 +3,59 @@ package main
 import (
 	"embed"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 
-	"github.com/open-function-computers-llc/server-run-inertia/server"
-
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/open-function-computers-llc/go-inertia-starter/server"
 )
 
 //go:embed dist/*
 var dist embed.FS
 
+// version can be changed by build flags
+var Version = "latest-dev"
+
 func main() {
-	port, url, err := processENV()
+	// fmt.Println("KCE Teacher App - v: " + Version)
+	err := verifyVaildEnv()
 	if err != nil {
-		panic("Trouble setting up server: " + err.Error())
+		log.Fatal(err.Error())
+		os.Exit(1)
 	}
 
-	s, err := server.New(port, url, dist)
-	if err != nil {
-		panic("Trouble setting up server: " + err.Error())
-	}
+	s := server.NewServer(dist, os.Getenv("APP_URL"))
 
 	err = s.Serve()
 	if err != nil {
-		panic("Trouble serving from server: " + err.Error())
+		log.Fatal(err.Error())
+		os.Exit(1)
 	}
 }
 
-func processENV() (int, string, error) {
-	requiredENV := []string{
+func verifyVaildEnv() error {
+	requiredKeys := []string{
 		"APP_PORT",
 		"APP_URL",
+		"APP_ENV",
 	}
 
-	for _, env := range requiredENV {
-		check := os.Getenv(env)
-		if check == "" {
-			return 0, "", errors.New("missing env: " + env)
+	for _, key := range requiredKeys {
+		if os.Getenv(key) == "" {
+			return errors.New("missing env: " + key)
 		}
 	}
 
-	webPort := os.Getenv("APP_PORT")
-	portInt, err := strconv.Atoi(webPort)
-	if err != nil {
-		panic("Invalid APP_PORT: " + err.Error())
+	requiredKeysThatAreInts := []string{
+		"APP_PORT",
+	}
+	for _, key := range requiredKeysThatAreInts {
+		_, err := strconv.Atoi(os.Getenv(key))
+		if err != nil {
+			return err
+		}
 	}
 
-	return portInt, os.Getenv("APP_URL"), nil
+	return nil
 }
